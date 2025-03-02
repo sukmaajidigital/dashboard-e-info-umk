@@ -16,7 +16,8 @@
 <body class="bg-light">
     <div class="container mt-4">
         <div class="card shadow-lg p-4">
-            <h2 class="text-center mb-4">Dashboard Mahasiswa</h2>
+            <h2 class="text-center text-primary font-weight-bold">Dashboard Mahasiswa</h2>
+            <h6 class="text-center text-success font-italic">Last Update Data Februari 2025</h6>
 
             <!-- Filter Form -->
             <form id="filterForm" class="row g-3">
@@ -41,7 +42,7 @@
 
         <!-- Chart -->
         <div class="card mt-4 shadow-lg p-4">
-            <h5 class="text-center">Statistik Mahasiswa</h5>
+            <h5 class="text-center">Statistik Mahasiswa UMK 2002 - 2024</h5>
             <div id="chart" class="mx-auto" style="width: 100%; height: 500px;"></div>
         </div>
 
