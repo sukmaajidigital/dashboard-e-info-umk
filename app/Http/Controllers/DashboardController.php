@@ -17,10 +17,35 @@ class DashboardController extends Controller
         // Ambil daftar tabel mahasiswa yang ada di database
         $tables = $this->getMahasiswaTables();
 
+        // Ambil daftar angkatan dari NIM
+        $angkatans = $this->getAngkatans($tables);
+
         // Hitung total mahasiswa per prodi untuk chart
         $chartData = $this->getChartData($tables);
 
-        return view('dashboard.index', compact('prodis', 'chartData'));
+        return view('dashboard.index', compact('prodis', 'chartData', 'angkatans'));
+    }
+
+    private function getAngkatans($tables)
+    {
+        $angkatans = [];
+
+        foreach ($tables as $kodeProdi => $tableName) {
+            // Ambil 4 digit pertama dari NIM sebagai angkatan
+            $results = DB::table($tableName)
+                ->select(DB::raw('SUBSTRING(nim, 1, 4) as angkatan'))
+                ->groupBy('angkatan')
+                ->get();
+
+            foreach ($results as $result) {
+                if (!in_array($result->angkatan, $angkatans)) {
+                    $angkatans[] = $result->angkatan;
+                }
+            }
+        }
+
+        sort($angkatans); // Urutkan angkatan
+        return $angkatans;
     }
 
     public function getData(Request $request)
@@ -28,6 +53,7 @@ class DashboardController extends Controller
         // Ambil parameter filter
         $prodiId = $request->input('prodi_id');
         $nim = $request->input('nim');
+        $nama = $request->input('nama');
 
         // Ambil daftar tabel mahasiswa yang ada di database
         $tables = $this->getMahasiswaTables();
@@ -48,9 +74,13 @@ class DashboardController extends Controller
                         'prodi.nama_prodi'
                     );
 
-                // Filter berdasarkan NIM
+                // Filter berdasarkan NIM dan Nama
                 if ($nim) {
                     $query->where($tableName . '.nim', 'like', '%' . $nim . '%');
+                }
+
+                if ($nama) {
+                    $query->where($tableName . '.nama', 'like', '%' . $nama . '%');
                 }
 
                 // Tambahkan hasil query ke array
@@ -88,6 +118,29 @@ class DashboardController extends Controller
         // Kembalikan data dalam format DataTables
         return DataTables::of($query)->toJson();
     }
+    public function getFakultas(Request $request)
+    {
+        $fakultas = DB::table('fakultas')->get();
+        return DataTables::of($fakultas)->toJson();
+    }
+
+    public function getProdi(Request $request)
+    {
+        $prodi = DB::table('prodi')
+            ->join('fakultas', 'prodi.fakultas_id', '=', 'fakultas.kode_fakultas')
+            ->select('prodi.*', 'fakultas.nama_fakultas')
+            ->get();
+        return DataTables::of($prodi)->toJson();
+    }
+
+    public function getMatakuliah(Request $request)
+    {
+        $matakuliah = DB::table('matakuliah')
+            ->join('prodi', 'matakuliah.prodi_id', '=', 'prodi.kode_prodi')
+            ->select('matakuliah.*', 'prodi.nama_prodi')
+            ->get();
+        return DataTables::of($matakuliah)->toJson();
+    }
 
     /**
      * Ambil daftar tabel mahasiswa dari database.
@@ -122,7 +175,20 @@ class DashboardController extends Controller
      * @param array $tables
      * @return array
      */
-    private function getChartData($tables)
+    public function filter(Request $request)
+    {
+        $angkatan = $request->query('angkatan');
+
+        // Ambil daftar tabel mahasiswa yang ada di database
+        $tables = $this->getMahasiswaTables();
+
+        // Hitung total mahasiswa per prodi untuk chart berdasarkan angkatan
+        $chartData = $this->getChartData($tables, $angkatan);
+
+        return response()->json($chartData);
+    }
+
+    private function getChartData($tables, $angkatan = null)
     {
         $labels = [];
         $data = [];
@@ -132,8 +198,14 @@ class DashboardController extends Controller
             $prodi = Prodi::where('kode_prodi', $kodeProdi)->first();
             $prodiName = $prodi ? $prodi->nama_prodi : 'Prodi ' . $kodeProdi;
 
-            // Hitung total mahasiswa
-            $totalMahasiswa = DB::table($tableName)->count();
+            // Query untuk menghitung total mahasiswa berdasarkan angkatan
+            $query = DB::table($tableName);
+
+            if ($angkatan) {
+                $query->where('nim', 'like', $angkatan . '%');
+            }
+
+            $totalMahasiswa = $query->count();
 
             // Tambahkan ke data chart
             $labels[] = $prodiName . ' (' . $kodeProdi . ')';
